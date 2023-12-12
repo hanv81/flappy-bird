@@ -1,6 +1,5 @@
 import numpy as np
-import gym
-import gym_ple
+import gym, gym_ple, pickle, cv2
 from gym_ple import PLEEnv
 from collections import defaultdict
 import warnings
@@ -64,28 +63,6 @@ def get_optimal_action(q_values, state):
     return env.action_space.sample()
   return np.argmax(q)
   
-def test(env, q_values, episodes):
-  history = {}
-  for i in range(episodes):
-    env.reset()
-    state = env.get_custom_state()
-    score = 0
-    frames = []
-    while True:
-      frame = env.render(mode = 'rgb_array')
-      frames.append(frame)
-      action = get_optimal_action(q_values, state)
-      state, reward, terminal = env.step(action)
-      if reward == 5:
-        score += 1
-      if terminal:
-        break
-
-    if score > 0:print(f'episode {i} pipe {score}')
-    history[i] = {'score':score, 'frames':frames}
-
-  return history
-
 def greedy(q_values, q_counters, state):
   count = [q_counters[(state, action)] for action in (ACTION_FLAP, ACTION_STAY)]
   q = [q_values[(state, action)] for action in (ACTION_FLAP, ACTION_STAY)]
@@ -173,8 +150,44 @@ def train_greedy(env, q_values, episodes, max_steps=1000, gamma=1, alpha=.9):
       print(f"    - Pipe          : {np.mean(pipes)}")
   return steps
 
+def test(env, q_values, episodes=None, display=True):
+  env.reset()
+  state = env.get_custom_state()
+  pipe = 0
+  episode = 1
+  while True:
+    action = get_optimal_action(q_values, state)
+    state, reward, terminal = env.step(action)
+    if display:
+      frame = env.render(mode = 'rgb_array')
+      frame = np.ascontiguousarray(frame)
+
+      cv2.putText(frame, f'EPISODE {episode} PIPE: {pipe}', org=(0, 15),
+                  fontFace = cv2.FONT_HERSHEY_SIMPLEX, fontScale=.5, color=(0, 0, 255), thickness=2)
+      frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+      cv2.imshow('Frame', frame)
+
+    if reward == 5:
+      pipe += 1
+    if terminal:
+      if pipe > 0:print(f'Episode {episode} : {pipe}')
+      pipe = 0
+      episode += 1
+      env.reset()
+      if episodes and episode == episodes+1:
+        break
+
+    if cv2.waitKey(20) & 0xFF == ord('q'):
+      break
+
 env = FlappyBirdCustom(gym.make('FlappyBird-v0'), rounding = 10)
-q_values = defaultdict(float)
+
+# q_values = defaultdict(float)
 # steps = train(env, q_values, episodes=500, epsilon_min=.001, epsilon_decay_rate=.99, max_steps=1000)
-steps = train_greedy(env, q_values, episodes=500, max_steps=1000)
-history = test(env, q_values, 20)
+# steps = train_greedy(env, q_values, episodes=500, max_steps=1000)
+# with open('q.pkl', 'wb') as f:
+    # pickle.dump(q_values, f)
+
+with open('q.pkl', 'rb') as f:
+  q_values = pickle.load(f)
+test(env, q_values, episodes=None, display=True)
