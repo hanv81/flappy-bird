@@ -139,36 +139,36 @@ def train_greedy(env, episodes, max_steps=1000, gamma=1, alpha=.9, display=False
   q_counters = defaultdict(float)
   steps = []
   pipes = []
-  for i in range(episodes):
-    env.reset()
-    state = env.get_custom_state()
-    step_count = 0
-    pipe = 0
-    while True:
-      action = greedy(q_values, q_counters, state)
-      q_counters[(state, action)] += 1
-      next_state, reward, terminal = env.step(action)
-      update_q(q_values, state, action, next_state, reward, alpha, gamma)
-      state = next_state
-      step_count += 1
+  
+  env.reset()
+  state = env.get_custom_state()
+  pipe,step = 0,0
+  episode = 1
+  while episode <= episodes:
+    action = greedy(q_values, q_counters, state)
+    q_counters[(state, action)] += 1
+    next_state, reward, terminal = env.step(action)
+    update_q(q_values, state, action, next_state, reward, alpha, gamma)
+    state = next_state
+    step += 1
 
-      if reward == 5:
-        pipe += 1
+    if reward == 5:
+      pipe += 1
 
-      if display and i % 10 == 0:
-        display_frame(env.render(mode = 'rgb_array'), f'EPISODE {i} PIPE: {pipe}', 'Training')
-        cv2.waitKey(1)
+    if display and episode % 10 == 0:
+      display_frame(env.render(mode = 'rgb_array'), f'EPISODE {episode} PIPE: {pipe}', 'Training')
+      cv2.waitKey(1)
 
-      if terminal or step_count > max_steps:
-        break
-
-    steps.append(step_count)
-    pipes.append(pipe)
-
-    if i % 100 == 99:
-      print(f"Episode {i+1}")
-      print(f"    - Step          : {np.mean(steps)}")
-      print(f"    - Pipe          : {np.mean(pipes)}")
+    if terminal:
+      steps.append(step)
+      pipes.append(pipe)
+      pipe,step = 0,0
+      if episode % 100 == 0:
+        print(f"Episode {episode}")
+        print(f"    - Step          : {np.mean(steps)}")
+        print(f"    - Pipe          : {np.mean(pipes)}")
+      episode += 1
+      env.reset()
 
   if display:
     cv2.destroyAllWindows()
@@ -183,11 +183,11 @@ def test(env, q_values, episodes=None, display=True):
   while True:
     action = get_optimal_action(q_values, state)
     state, reward, terminal = env.step(action)
+    if reward == 5:
+      pipe += 1
     if display:
       display_frame(env.render(mode = 'rgb_array'), f'EPISODE {episode} PIPE: {pipe}', 'Testing')
 
-    if reward == 5:
-      pipe += 1
     if terminal:
       if pipe > 0:print(f'Episode {episode} : {pipe}')
       pipe = 0
