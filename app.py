@@ -82,7 +82,14 @@ def update_q(q_values, state, action, next_state, reward, alpha, gamma):
   max_value = max([q_values[(next_state, action)] for action in (ACTION_FLAP, ACTION_STAY)])
   q_values[(state, action)] = current_value + alpha * (reward + gamma * max_value - current_value)
 
-def train(env, episodes, epsilon_min, epsilon_decay_rate, max_steps=1000, gamma=1, alpha=.9):
+def display_frame(frame, text, title):
+  frame = np.ascontiguousarray(frame)
+  cv2.putText(frame, text, org=(0, 15), thickness=2,
+              fontFace = cv2.FONT_HERSHEY_SIMPLEX, fontScale=.5, color=(0, 0, 255))
+  frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+  cv2.imshow(title, frame)
+
+def train(env, episodes, epsilon_min, epsilon_decay_rate, max_steps=1000, gamma=1, alpha=.9, display=False):
   q_values = defaultdict(float)
   steps = []
   pipes = []
@@ -91,7 +98,7 @@ def train(env, episodes, epsilon_min, epsilon_decay_rate, max_steps=1000, gamma=
     env.reset()
     state = env.get_custom_state()
     step_count = 0
-    pipe_pass = 0
+    pipe = 0
     while True:
       action = epsilon_greedy(q_values, state, epsilon)
       next_state, reward, terminal = env.step(action)
@@ -100,13 +107,17 @@ def train(env, episodes, epsilon_min, epsilon_decay_rate, max_steps=1000, gamma=
       step_count += 1
 
       if reward == 5:
-        pipe_pass += 1
+        pipe += 1
+
+      if display and i % 10 == 0:
+        display_frame(env.render(mode = 'rgb_array'), f'EPISODE {i} PIPE: {pipe}', 'Training')
+        cv2.waitKey(1)
 
       if terminal or step_count > max_steps:
         break
 
     steps.append(step_count)
-    pipes.append(pipe_pass)
+    pipes.append(pipe)
 
     if epsilon > epsilon_min:
       epsilon *= epsilon_decay_rate
@@ -117,9 +128,13 @@ def train(env, episodes, epsilon_min, epsilon_decay_rate, max_steps=1000, gamma=
       print(f"Episode {i+1} - Epsilon {epsilon}")
       print(f"    - Step          : {np.mean(steps)}")
       print(f"    - Pipe          : {np.mean(pipes)}")
+  
+  if display:
+    cv2.destroyAllWindows()
+
   return q_values
 
-def train_greedy(env, episodes, max_steps=1000, gamma=1, alpha=.9):
+def train_greedy(env, episodes, max_steps=1000, gamma=1, alpha=.9, display=False):
   q_values = defaultdict(float)
   q_counters = defaultdict(float)
   steps = []
@@ -128,7 +143,7 @@ def train_greedy(env, episodes, max_steps=1000, gamma=1, alpha=.9):
     env.reset()
     state = env.get_custom_state()
     step_count = 0
-    pipe_pass = 0
+    pipe = 0
     while True:
       action = greedy(q_values, q_counters, state)
       q_counters[(state, action)] += 1
@@ -138,18 +153,26 @@ def train_greedy(env, episodes, max_steps=1000, gamma=1, alpha=.9):
       step_count += 1
 
       if reward == 5:
-        pipe_pass += 1
+        pipe += 1
+
+      if display and i % 10 == 0:
+        display_frame(env.render(mode = 'rgb_array'), f'EPISODE {i} PIPE: {pipe}', 'Training')
+        cv2.waitKey(1)
 
       if terminal or step_count > max_steps:
         break
 
     steps.append(step_count)
-    pipes.append(pipe_pass)
+    pipes.append(pipe)
 
     if i % 100 == 99:
       print(f"Episode {i+1}")
       print(f"    - Step          : {np.mean(steps)}")
       print(f"    - Pipe          : {np.mean(pipes)}")
+
+  if display:
+    cv2.destroyAllWindows()
+
   return q_values
 
 def test(env, q_values, episodes=None, display=True):
@@ -161,13 +184,7 @@ def test(env, q_values, episodes=None, display=True):
     action = get_optimal_action(q_values, state)
     state, reward, terminal = env.step(action)
     if display:
-      frame = env.render(mode = 'rgb_array')
-      frame = np.ascontiguousarray(frame)
-
-      cv2.putText(frame, f'EPISODE {episode} PIPE: {pipe}', org=(0, 15),
-                  fontFace = cv2.FONT_HERSHEY_SIMPLEX, fontScale=.5, color=(0, 0, 255), thickness=2)
-      frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-      cv2.imshow('Frame', frame)
+      display_frame(env.render(mode = 'rgb_array'), f'EPISODE {episode} PIPE: {pipe}', 'Testing')
 
     if reward == 5:
       pipe += 1
@@ -182,12 +199,15 @@ def test(env, q_values, episodes=None, display=True):
     if cv2.waitKey(20) & 0xFF == ord('q'):
       break
 
+  if display:
+    cv2.destroyAllWindows()
+
 env = FlappyBirdCustom(gym.make('FlappyBird-v0'), rounding = 10)
 
-# q_values = train(env, q_values, episodes=500, epsilon_min=.001, epsilon_decay_rate=.99, max_steps=1000)
-q_values = train_greedy(env, episodes=1000, max_steps=1000)
-with open('q.pkl', 'wb') as f:
-  pickle.dump(q_values, f)
+# q_values = train(env, episodes=50, epsilon_min=.001, epsilon_decay_rate=.99, max_steps=1000, display=False)
+q_values = train_greedy(env, episodes=100, max_steps=1000, display=True)
+# with open('q.pkl', 'wb') as f:
+#   pickle.dump(q_values, f)
 
 # with open('q.pkl', 'rb') as f:
 #   q_values = pickle.load(f)
