@@ -88,6 +88,7 @@ def display_frame(frame, text, title):
               fontFace = cv2.FONT_HERSHEY_SIMPLEX, fontScale=.5, color=(0, 0, 255))
   frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
   cv2.imshow(title, frame)
+  return frame
 
 def train(env, episodes, epsilon_min, epsilon_decay_rate, max_steps=1000, gamma=1, alpha=.9, display=False):
   q_values = defaultdict(float)
@@ -175,18 +176,21 @@ def train_greedy(env, episodes, max_steps=1000, gamma=1, alpha=.9, display=False
 
   return q_values
 
-def test(env, q_values, episodes=None, display=True):
+def test(env, q_values, episodes=None, display=True, record_video=False):
   env.reset()
   state = env.get_custom_state()
   pipe = 0
   episode = 1
+  frames = []
   while True:
     action = get_optimal_action(q_values, state)
     state, reward, terminal = env.step(action)
     if reward == 5:
       pipe += 1
     if display:
-      display_frame(env.render(mode = 'rgb_array'), f'EPISODE {episode} PIPE: {pipe}', 'Testing')
+      frame = display_frame(env.render(mode = 'rgb_array'), f'EPISODE {episode} PIPE: {pipe}', 'Testing')
+      if record_video:
+        frames.append(frame)
 
     if terminal:
       if pipe > 0:print(f'Episode {episode} : {pipe}')
@@ -201,14 +205,20 @@ def test(env, q_values, episodes=None, display=True):
 
   if display:
     cv2.destroyAllWindows()
+    if record_video:
+      h, w, _ = frames[0].shape
+      writer = cv2.VideoWriter('record.avi', cv2.VideoWriter_fourcc(*'DIVX'), 30, (w, h))
+      for frame in frames:
+        writer.write(frame)
+      writer.release()
 
 env = FlappyBirdCustom(gym.make('FlappyBird-v0'), rounding = 10)
 
 # q_values = train(env, episodes=50, epsilon_min=.001, epsilon_decay_rate=.99, max_steps=1000, display=False)
-q_values = train_greedy(env, episodes=100, max_steps=1000, display=True)
+# q_values = train_greedy(env, episodes=100, max_steps=1000, display=True)
 # with open('q.pkl', 'wb') as f:
 #   pickle.dump(q_values, f)
 
-# with open('q.pkl', 'rb') as f:
-#   q_values = pickle.load(f)
-test(env, q_values, episodes=None, display=True)
+with open('q.pkl', 'rb') as f:
+  q_values = pickle.load(f)
+test(env, q_values, episodes=3, display=True, record_video=False)
