@@ -82,7 +82,8 @@ def update_q(q_values, state, action, next_state, reward, alpha, gamma):
   max_value = max([q_values[(next_state, action)] for action in (ACTION_FLAP, ACTION_STAY)])
   q_values[(state, action)] = current_value + alpha * (reward + gamma * max_value - current_value)
 
-def train(env, q_values, episodes, epsilon_min, epsilon_decay_rate, max_steps=1000, gamma=1, alpha=.9):
+def train(env, episodes, epsilon_min, epsilon_decay_rate, max_steps=1000, gamma=1, alpha=.9):
+  q_values = defaultdict(float)
   steps = []
   pipes = []
   epsilon = 1
@@ -116,9 +117,10 @@ def train(env, q_values, episodes, epsilon_min, epsilon_decay_rate, max_steps=10
       print(f"Episode {i+1} - Epsilon {epsilon}")
       print(f"    - Step          : {np.mean(steps)}")
       print(f"    - Pipe          : {np.mean(pipes)}")
-  return steps
+  return q_values
 
-def train_greedy(env, q_values, episodes, max_steps=1000, gamma=1, alpha=.9):
+def train_greedy(env, episodes, max_steps=1000, gamma=1, alpha=.9):
+  q_values = defaultdict(float)
   q_counters = defaultdict(float)
   steps = []
   pipes = []
@@ -148,7 +150,7 @@ def train_greedy(env, q_values, episodes, max_steps=1000, gamma=1, alpha=.9):
       print(f"Episode {i+1}")
       print(f"    - Step          : {np.mean(steps)}")
       print(f"    - Pipe          : {np.mean(pipes)}")
-  return steps
+  return q_values
 
 def test(env, q_values, episodes=None, display=True):
   env.reset()
@@ -182,12 +184,11 @@ def test(env, q_values, episodes=None, display=True):
 
 env = FlappyBirdCustom(gym.make('FlappyBird-v0'), rounding = 10)
 
-# q_values = defaultdict(float)
-# steps = train(env, q_values, episodes=500, epsilon_min=.001, epsilon_decay_rate=.99, max_steps=1000)
-# steps = train_greedy(env, q_values, episodes=500, max_steps=1000)
-# with open('q.pkl', 'wb') as f:
-    # pickle.dump(q_values, f)
+# q_values = train(env, q_values, episodes=500, epsilon_min=.001, epsilon_decay_rate=.99, max_steps=1000)
+q_values = train_greedy(env, episodes=1000, max_steps=1000)
+with open('q.pkl', 'wb') as f:
+  pickle.dump(q_values, f)
 
-with open('q.pkl', 'rb') as f:
-  q_values = pickle.load(f)
+# with open('q.pkl', 'rb') as f:
+#   q_values = pickle.load(f)
 test(env, q_values, episodes=None, display=True)
