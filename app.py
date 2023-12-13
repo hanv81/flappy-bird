@@ -143,13 +143,13 @@ def train_greedy(env, episodes, max_steps=1000, gamma=1, alpha=.9, display=False
   
   env.reset()
   state = env.get_custom_state()
-  pipe,step = 0,0
-  episode = 1
+  episode, pipe,step = 1, 0,0
+  memory = []
   while episode <= episodes:
     action = greedy(q_values, q_counters, state)
     q_counters[(state, action)] += 1
     next_state, reward, terminal = env.step(action)
-    update_q(q_values, state, action, next_state, reward, alpha, gamma)
+    memory.append((state, action, reward, next_state))
     state = next_state
     step += 1
 
@@ -160,14 +160,17 @@ def train_greedy(env, episodes, max_steps=1000, gamma=1, alpha=.9, display=False
       display_frame(env.render(mode = 'rgb_array'), f'EPISODE {episode} PIPE: {pipe}', 'Training')
       cv2.waitKey(1)
 
-    if terminal:
+    if terminal or step == max_steps:
       steps.append(step)
       pipes.append(pipe)
       pipe,step = 0,0
+      for state, action, reward, next_state in memory[::-1]:
+        update_q(q_values, state, action, next_state, reward, alpha, gamma)
+      memory.clear()
       if episode % 100 == 0:
         print(f"Episode {episode}")
-        print(f"    - Step          : {np.mean(steps)}")
-        print(f"    - Pipe          : {np.mean(pipes)}")
+        print(f"    - Step          : {np.mean(steps)}, {np.max(steps)}")
+        print(f"    - Pipe          : {np.mean(pipes)}, {np.max(pipes)}")
       episode += 1
       env.reset()
 
@@ -221,4 +224,4 @@ env = FlappyBirdCustom(gym.make('FlappyBird-v0'), rounding = 10)
 
 with open('q.pkl', 'rb') as f:
   q_values = pickle.load(f)
-test(env, q_values, episodes=3, display=True, record_video=False)
+test(env, q_values, episodes=None, display=True, record_video=False)
