@@ -222,6 +222,9 @@ env = FlappyBirdCustom(gym.make('FlappyBird-v0'), rounding = 10)
 # with open('q.pkl', 'wb') as f:
 #   pickle.dump(q_values, f)
 
-with open('q.pkl', 'rb') as f:
-  q_values = pickle.load(f)
+# with open('q.pkl', 'rb') as f:
+  # q_values = pickle.load(f)
+
+test(env, defaultdict(float), episodes=None, display=True, record_video=False)
+q_values = train_greedy(env, episodes=300, max_steps=1000, display=True)
 test(env, q_values, episodes=None, display=True, record_video=False)
